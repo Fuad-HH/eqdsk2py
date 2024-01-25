@@ -400,7 +400,7 @@ def plot_sorted_points_with_contour(psi, xx, yy, sorted_critical_points):
     fig = plt.figure()
     fig.set_size_inches(5, 5)
     ax = fig.add_subplot(111)
-    plt.clabel(ax.contour(xx, yy, psi, levels=30), inline=1, fontsize=6)
+    plt.clabel(ax.contour(xx, yy, psi, levels=20), inline=1, fontsize=6)
 
     for point_type in sorted_critical_points:
         for point in sorted_critical_points[point_type]:
