@@ -8,6 +8,7 @@ import scipy as sp
 from freeqdsk import geqdsk
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import regex as re
 
 def read_gedsk(filename):
     '''
@@ -420,3 +421,57 @@ def plot_sorted_points_with_contour(psi, xx, yy, sorted_critical_points):
     ax.set_title('Psi')
     plt.tight_layout()
     plt.show()
+
+
+def get_wall_points(filename):
+    '''
+    This function reads a G-EQDSK file and returns the wall points
+
+    Parameters
+    ----------
+    filename : str
+        The path to the G-EQDSK file
+    
+    Returns
+    -------
+    wall_points : tuple(numpy.array, numpy.array)
+        A tuple of two numpy arrays containing the x and y coordinates of the wall points
+    '''
+    with open(filename, "r") as f:
+        textD = f.read()
+    
+    # get the number of wall points using the LIMITR tag
+    match = re.search(r'LIMITR=(\d+)', textD)
+    if match:
+        number = int(match.group(1))
+    else:
+        print("No wall points found: LIMITR tag not found in "+filename)
+        return None
+    
+    # get xlims and ylims
+    matchx = re.search(r'XLIM=([^,]*,){%d}' % number, textD)
+    if matchx:
+        # extract the matched string, remove the 'XLIM=' part and split by comma
+        values = matchx.group(0).replace('XLIM=', '').split(',')[:-1]
+        # convert the values to float and make it an array
+        xlims = np.array([float(value) for value in values])
+    else:
+        print("No wall points found: XLIM tag not found in "+filename)
+        return None
+    
+    matchy = re.search(r'YLIM=([^,]*,){%d}' % number, textD)
+    if matchy:
+        # extract the matched string, remove the 'XLIM=' part and split by comma
+        values = matchy.group(0).replace('YLIM=', '').split(',')[:-1]
+        # convert the values to float and make it an array
+        ylims = np.array([float(value) for value in values])
+    else:
+        print("No wall points found: YLIM tag not found in "+filename)
+        return None
+    
+    # check if the number of points in xlims and ylims are the same as number
+    if len(xlims) != number or len(ylims) != number:
+        print("Number of points in XLIM and YLIM does not match LIMITR")
+        return None
+    
+    return xlims, ylims
