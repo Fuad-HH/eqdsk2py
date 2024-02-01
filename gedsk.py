@@ -7,6 +7,7 @@ import numpy as np
 import scipy as sp
 from freeqdsk import geqdsk
 import matplotlib.pyplot as plt
+import matplotlib.path as mpath
 import plotly.graph_objects as go
 import regex as re
 
@@ -296,7 +297,7 @@ def check_out_of_bound(x, y, bounds):
     return (x < bounds[0][0] or x > bounds[0][1] or y < bounds[1][0] or y > bounds[1][1])
 
 
-def find_type_of_a_critical_point(spline, x, y, bounds):
+def find_type_of_a_critical_point(spline, x, y, bounds, lims):
     '''
     Returns the type of a critical point.
 
@@ -310,22 +311,29 @@ def find_type_of_a_critical_point(spline, x, y, bounds):
         y value.
     bounds : list
         Bounds for the x and y values of the grid.
+    lims : tuple(np.array, np.array)
+        A tuple of two numpy arrays containing the x and y coordinates of the wall points
     ----------
     '''
+    xlims, ylims = lims
+
     if check_out_of_bound(x, y, bounds):
         return 'out_of_bound'
-    hessian = calc_hessian(spline, x, y)
-    if abs(np.linalg.det(hessian)) < 1e-6:
-        return 'degenerate'
-    if np.linalg.det(hessian) < 0:
-        return 'saddle'
+    if inside_wall(x, y, xlims, ylims):
+        hessian = calc_hessian(spline, x, y)
+        if abs(np.linalg.det(hessian)) < 1e-6:
+            return 'degenerate'
+        if np.linalg.det(hessian) < 0:
+            return 'saddle'
+        else:
+            if hessian[0, 0] > 0:
+                return 'minimum'
+            elif hessian[0, 0] < 0:
+                return 'maximum'
     else:
-        if hessian[0, 0] > 0:
-            return 'minimum'
-        elif hessian[0, 0] < 0:
-            return 'maximum'
+        return 'out_of_wall'
 
-def sort_critical_points(all_critical_points, spline, bounds):
+def sort_critical_points(all_critical_points, spline, bounds, lims):
     '''
     Returns the sorted critical points as a dictionary
     with the types as keys and a list of points as values.
@@ -342,7 +350,7 @@ def sort_critical_points(all_critical_points, spline, bounds):
     '''
     sorted_critical_points = {}
     for point in all_critical_points:
-        point_type = find_type_of_a_critical_point(spline, point[0], point[1], bounds)
+        point_type = find_type_of_a_critical_point(spline, point[0], point[1], bounds, lims)
         if point_type in sorted_critical_points:
             sorted_critical_points[point_type].append(point)
         else:
@@ -381,7 +389,7 @@ def get_x_points(all_critical_points, spline, bounds):
     '''
     return set([(x, y) for x, y in all_critical_points if find_type_of_a_critical_point(spline, x, y, bounds) == 'saddle'])
 
-def plot_sorted_points_with_contour(psi, xx, yy, sorted_critical_points):
+def plot_sorted_points_with_contour_with_wall(psi, xx, yy, sorted_critical_points, filename=None):
     '''
     Plots the sorted critical points with the contour plot.
     Each type of point has a different color with labels.
@@ -396,12 +404,22 @@ def plot_sorted_points_with_contour(psi, xx, yy, sorted_critical_points):
         Array of y values.
     sorted_critical_points : dict
         Dictionary of sorted critical points.
+    filename : str default None
+        The path to the G-EQDSK file.
     ----------
     '''
     fig = plt.figure()
     fig.set_size_inches(5, 5)
     ax = fig.add_subplot(111)
     plt.clabel(ax.contour(xx, yy, psi, levels=20), inline=1, fontsize=6)
+
+    # if there is wall information, plot the wall
+    if filename:
+        xlims, ylims = get_wall_points(filename)
+        if xlims is not None and ylims is not None:
+            ax.plot(xlims, ylims, 'r--', label="Wall")
+        else:
+            print("No wall points found in "+filename)
 
     for point_type in sorted_critical_points:
         for point in sorted_critical_points[point_type]:
@@ -413,14 +431,18 @@ def plot_sorted_points_with_contour(psi, xx, yy, sorted_critical_points):
                 ax.plot(point[0], point[1], 'go', label="Degenerate/Unknown point")
             elif point_type == 'out_of_bound':
                 ax.plot(point[0], point[1], 'ko', label="Out of bound point")
+            elif point_type == 'out_of_wall':
+                ax.plot(point[0], point[1], 'yo', label="Out of wall")
 
     # show the legend
-    ax.legend()
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_xlabel('R [m]')
     ax.set_ylabel('Z [m]')
     ax.set_title('Psi')
+    ax.set_aspect('equal')
     plt.tight_layout()
     plt.show()
+    return fig
 
 
 def get_wall_points(filename):
@@ -475,3 +497,27 @@ def get_wall_points(filename):
         return None
     
     return xlims, ylims
+
+# create a function that checks if a point is inside the path from xlims and ylims
+def inside_wall(x, y, xlims, ylims):
+    '''
+    Checks if a point is inside the wall
+
+    Parameters
+    ----------
+    x : float
+        x coordinate of the point
+    y : float
+        y coordinate of the point
+    xlims : list
+        x coordinates of the wall
+    ylims : list
+        y coordinates of the wall
+
+    Returns
+    -------
+    bool
+        True if the point is inside the wall, False otherwise
+    '''
+    path = mpath.Path(np.array([xlims, ylims]).T)
+    return path.contains_point((x, y))
