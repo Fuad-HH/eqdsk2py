@@ -4,3 +4,5 @@ scipy
 matplotlib
 plotly
 freeqdsk
+regex
+urllib
