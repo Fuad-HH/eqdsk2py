@@ -315,23 +315,27 @@ def find_type_of_a_critical_point(spline, x, y, bounds, lims):
         A tuple of two numpy arrays containing the x and y coordinates of the wall points
     ----------
     '''
-    xlims, ylims = lims
+    # check if lims are not None
+    lims_exist = lims is not None
+    if lims_exist:
+        xlims, ylims = lims
 
     if check_out_of_bound(x, y, bounds):
         return 'out_of_bound'
-    if inside_wall(x, y, xlims, ylims):
-        hessian = calc_hessian(spline, x, y)
-        if abs(np.linalg.det(hessian)) < 1e-6:
-            return 'degenerate'
-        if np.linalg.det(hessian) < 0:
-            return 'saddle'
-        else:
-            if hessian[0, 0] > 0:
-                return 'minimum'
-            elif hessian[0, 0] < 0:
-                return 'maximum'
-    else:
+    
+    if lims_exist and not inside_wall(x, y, xlims, ylims):
         return 'out_of_wall'
+
+    hessian = calc_hessian(spline, x, y)
+    if abs(np.linalg.det(hessian)) < 1e-6:
+        return 'degenerate'
+    if np.linalg.det(hessian) < 0:
+        return 'saddle'
+    else:
+        if hessian[0, 0] > 0:
+            return 'minimum'
+        elif hessian[0, 0] < 0:
+            return 'maximum'
 
 def sort_critical_points(all_critical_points, spline, bounds, lims):
     '''
@@ -415,8 +419,9 @@ def plot_sorted_points_with_contour_with_wall(psi, xx, yy, sorted_critical_point
 
     # if there is wall information, plot the wall
     if filename:
-        xlims, ylims = get_wall_points(filename)
-        if xlims is not None and ylims is not None:
+        lims = get_wall_points(filename)
+        if lims is not None:
+            xlims, ylims = lims
             ax.plot(xlims, ylims, 'r--', label="Wall")
         else:
             print("No wall points found in "+filename)
@@ -441,8 +446,7 @@ def plot_sorted_points_with_contour_with_wall(psi, xx, yy, sorted_critical_point
     ax.set_title('Psi')
     ax.set_aspect('equal')
     plt.tight_layout()
-    plt.show()
-    return fig
+    return fig, ax
 
 
 def get_wall_points(filename):
