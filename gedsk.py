@@ -112,6 +112,8 @@ def plotPoints_on_psi_contour(psi, xx, yy, points = []):
     ax.set_xlabel('R [m]')
     ax.set_ylabel('Z [m]')
     ax.set_title('Psi')
+    # set the aspect of the plot to be equal
+    ax.set_aspect('equal')
     plt.tight_layout()
     plt.show()
 
