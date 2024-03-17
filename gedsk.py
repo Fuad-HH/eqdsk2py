@@ -2,6 +2,7 @@
 This file has all the necessary functions to read a GEDSK file and
 do some basic manipulations on it.
 '''
+## added by marjan
 
 import numpy as np
 import scipy as sp
